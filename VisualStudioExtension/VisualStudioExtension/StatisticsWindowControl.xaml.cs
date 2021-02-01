@@ -33,7 +33,7 @@ namespace VisualStudioExtension
             this.InitializeComponent();
 
             mStatisticsList = new List<Statistics>();
-            Statistics.ItemsSource = mStatisticsList;
+            StatisticsListView.ItemsSource = mStatisticsList;
         }
 
         private string RemoveComments(string sourceCode)
@@ -154,7 +154,27 @@ namespace VisualStudioExtension
         private void RefreshButton_OnClick(object sender, RoutedEventArgs e)
         {
             MenuItemCallback();
-            Statistics.Items.Refresh();
+            StatisticsListView.Items.Refresh();
+        }
+
+        private void StatisticsListView_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            UpdateColumnsWidth(sender as ListView);
+        }
+
+        private void StatisticsListView_Loaded(object sender, RoutedEventArgs e)
+        {
+            UpdateColumnsWidth(sender as ListView);
+        }
+
+        private void UpdateColumnsWidth(ListView listView)
+        {
+            var columnWidth = listView.ActualWidth / (listView.View as GridView).Columns.Count;
+
+            foreach (var column in (listView.View as GridView).Columns)
+            {
+                column.Width = columnWidth;
+            }
         }
     }
 }

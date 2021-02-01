@@ -8,26 +8,27 @@
              Foreground="{DynamicResource {x:Static vsshell:VsBrushes.WindowTextKey}}"
              mc:Ignorable="d"
              d:DesignHeight="300" d:DesignWidth="300"
-             Name="MyToolWindow">
+             Name="StatisticsWindow">
     <Grid>
-        <ScrollViewer>
-            <StackPanel>
+        <ScrollViewer Width="Auto" HorizontalAlignment="Stretch">
+            <StackPanel Width="Auto" HorizontalAlignment="Stretch">
                 <Button HorizontalAlignment="Left" Content="Refresh" Click="RefreshButton_OnClick" Width="100" Height="25" Name="RefreshButton"/>
-                <ListView Name="Statistics" TextBlock.Foreground="Black" FontWeight="Light">
+                <ListView Name="StatisticsListView" TextBlock.Foreground="Black" FontWeight="Light" Width="Auto" HorizontalAlignment="Stretch"
+                          SizeChanged="StatisticsListView_SizeChanged" Loaded="StatisticsListView_Loaded">
                     <ListView.View>
                         <GridView>
                             <GridViewColumn DisplayMemberBinding= "{Binding Name}"
-                                Header="Name"
-                                Width="100"/>
+                                            Header="Name"
+                                            Width="Auto"/>
                             <GridViewColumn DisplayMemberBinding= "{Binding LinesCount}"
                                 Header="Lines"
-                                Width="100"/>
+                                Width="Auto"/>
                             <GridViewColumn DisplayMemberBinding= "{Binding LinesWithoutCommentsCount}"
                                 Header="Lines w/o comments"
-                                Width="100"/>
+                                Width="Auto"/>
                             <GridViewColumn DisplayMemberBinding= "{Binding KeywordsCount}"
                                 Header="Keywords"
-                                Width="100"/>
+                                Width="Auto"/>
                         </GridView>
                     </ListView.View>
                 </ListView>
