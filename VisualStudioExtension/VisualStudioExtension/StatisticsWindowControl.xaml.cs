@@ -44,19 +44,19 @@ namespace VisualStudioExtension
             var one_quotes = @"'((')|(\r\n)|((.*?)(([^\\]\r\n)|([^\\]'))))";
 
             return Regex.Replace(sourceCode, multiLine + "|" + singleLine + "|" + quotes + "|" + one_quotes,
-                me =>
+                match =>
                 {
-                    if (me.Value.StartsWith("//"))
+                    if (match.Value.StartsWith("//"))
                     {
                         return Environment.NewLine;
                     }
 
-                    if (me.Value.StartsWith("/*"))
+                    if (match.Value.StartsWith("/*"))
                     {
                         return "";
                     }
 
-                    return me.Value;
+                    return match.Value;
                 }, RegexOptions.Singleline);
         }
 
