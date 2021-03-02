@@ -17,16 +17,14 @@ namespace VisualStudioExtension
     {
         private List<Statistics> mStatisticsList;
 
-        private const string MKeywordsPattern = 
-            @"\b(alignas|alignof|and|and_eq|asm|auto|bitand|bitor|bool|break|case|catch|
-                 char|char16_t|char32_t|class|compl|const|constexpr|const_cast|continue|
-                 decltype|default|delete|do|double|dynamic_cast|else|enum|explicit|export|
-                 extern|false|float|for|friend|goto|if|inline|int|long|mutable|namespace|
-                 new|noexcept|not|not_eq|nullptr|operator|or|or_eq|private|protected|public|
-                 register|reinterpret_cast|return|short|signed|sizeof|static|static_assert|
-                 static_cast|struct|switch|template|this|thread_local|throw|true|try|typedef|
-                 typeid|typename|union|unsigned|using|virtual|void|volatile|wchar_t|while|xor|
-                 xor_eq)\b";
+        private const string MKeywordsPattern =
+            @"\b(alignas|alignof|and|and_eq|asm|auto|bitand|bitor|bool|break|case|catch|char|char16_t|char32_t|class|compl|const|constexpr|const_cast|continue|decltype|default|delete|do|double|dynamic_cast|else|enum|explicit|export|extern|false|float|for|friend|goto|if|inline|int|long|mutable|namespace|new|noexcept|not|not_eq|nullptr|operator|or|or_eq|private|protected|public|register|reinterpret_cast|return|short|signed|sizeof|static|static_assert|static_cast|struct|switch|template|this|thread_local|throw|true|try|typedef|typeid|typename|union|unsigned|using|virtual|void|volatile|wchar_t|while|xor|xor_eq)\b";
+
+        private const string MAsteriskCommentPattern = @"/\*((.*?)|(((.*?)\n)+(.*?)))\*/";
+        private const string MSlashCommentPattern = @"//((\r\n)|((.*?)[^\\]\r\n))";
+        private const string MQuotationQuotePattern = @"""(("")|(\r\n)|((.*?)(([^\\]\r\n)|([^\\]""))))";
+        private const string MApostropheQuotePattern = @"'((')|(\r\n)|((.*?)(([^\\]\r\n)|([^\\]'))))";
+        private const string MEmptyLinePattern = @"[\n\r]\s*[\r\n]";
 
         public StatisticsWindowControl()
         {
@@ -36,62 +34,38 @@ namespace VisualStudioExtension
             StatisticsListView.ItemsSource = mStatisticsList;
         }
 
-        private string RemoveComments(string sourceCode)
-        {
-            var multiLine = @"/\*(.*?)\*/";
-            var singleLine = @"//(.*?)[^\\]\r\n";
-            var quotes = @"""(("")|(\r\n)|((.*?)(([^\\]\r\n)|([^\\]""))))";
-            var one_quotes = @"'((')|(\r\n)|((.*?)(([^\\]\r\n)|([^\\]'))))";
-
-            return Regex.Replace(sourceCode, multiLine + "|" + singleLine + "|" + quotes + "|" + one_quotes,
+        private string RemoveComments(string sourceCode) => 
+            Regex.Replace(sourceCode, 
+                MAsteriskCommentPattern + "|" + MSlashCommentPattern + "|" + MQuotationQuotePattern + "|" + MApostropheQuotePattern,
                 match =>
                 {
-                    if (match.Value.StartsWith("//"))
+                    if (match.Value.StartsWith("//") || match.Value.StartsWith("/*"))
                     {
                         return Environment.NewLine;
                     }
 
-                    if (match.Value.StartsWith("/*"))
+                    return match.Value;
+                }, RegexOptions.Singleline);
+
+        private string RemoveQuotes(string sourceCode) =>
+            Regex.Replace(sourceCode,
+                MAsteriskCommentPattern + "|" + MSlashCommentPattern + "|" + MQuotationQuotePattern + "|" + MApostropheQuotePattern,
+                match =>
+                {
+                    if (match.Value.StartsWith("//") || match.Value.StartsWith("/*") ||
+                        match.Value.StartsWith("\"") || match.Value.StartsWith("\'"))
                     {
-                        return "";
+                        return Environment.NewLine;
                     }
 
                     return match.Value;
                 }, RegexOptions.Singleline);
-        }
-
-        private string RemoveMultilineComments(string sourceCode)
-        {
-            var multiLine = @"/\*((.*?)\n)+(.*?)\*/";
-            var quotes = @"""(("")|(\r\n)|((.*?)(([^\\]\r\n)|([^\\]""))))";
-            var one_quotes = @"'((')|(\r\n)|((.*?)(([^\\]\r\n)|([^\\]'))))";
-
-            return Regex.Replace(sourceCode, multiLine + "|" + quotes + "|" + one_quotes, me =>
-            {
-                return me.Value.StartsWith("/*") ? Environment.NewLine : me.Value;
-            }, RegexOptions.Singleline);
-        }
-
-        private string RemoveQuotes(string sourceCode)
-        {
-            sourceCode = Regex.Replace(sourceCode, @"""(("")|(\n)|((.*?)(([^\\]\n)|([^\\]""))))", "", RegexOptions.Singleline);
-            return Regex.Replace(sourceCode, @"'((')|(\n)|((.*?)(([^\\]\n)|([^\\]'))))", "", RegexOptions.Singleline);
-        }
-
-        private string RemoveEmptyLines(string sourceCode)
-        {
-            var sReg = @"[\n\r]\s*[\r\n]";
-            var rgx = new Regex(sReg);
-            var emptyLines = rgx.Replace(sourceCode, "\n");
-
-            return emptyLines;
-        }
 
         private void FunctionInfo(CodeElement codeElement)
         {
             var funcElement = codeElement as CodeFunction;
             var start = funcElement.GetStartPoint(vsCMPart.vsCMPartHeader);
-            var end = funcElement.GetEndPoint();
+            var end = funcElement.GetEndPoint(vsCMPart.vsCMPartBodyWithDelimiter);
             var sourceCode = start.CreateEditPoint().GetText(end);
             var openCurlyBracePos = sourceCode.IndexOf('{');
 
@@ -99,16 +73,13 @@ namespace VisualStudioExtension
             {
                 var name = codeElement.FullName + "()";
 
+                var withoutComments = (new Regex(MEmptyLinePattern)).Replace(RemoveComments(sourceCode), "\n");
+                var withoutCommentsAndQuotes = (new Regex(MEmptyLinePattern)).Replace(RemoveQuotes(sourceCode), "\n");
+
                 var linesCount = Regex.Matches(sourceCode, @"[\n]").Count + 1;
+                var linesWithoutCommentsCount = Regex.Matches(withoutComments, @"[\n]").Count + 1;
+                var keywordsCount = Regex.Matches(withoutCommentsAndQuotes, MKeywordsPattern).Count;
 
-                sourceCode = RemoveEmptyLines(RemoveMultilineComments(RemoveComments(sourceCode)));
-
-                var linesWithoutCommentsCount = Regex.Matches(sourceCode, @"[\n]").Count + 1;
-
-                sourceCode = RemoveQuotes(sourceCode);
-
-                var keywordsCount = Regex.Matches(sourceCode, MKeywordsPattern).Count;
-                
                 mStatisticsList.Add(new Statistics()
                 {
                     Name = name,
